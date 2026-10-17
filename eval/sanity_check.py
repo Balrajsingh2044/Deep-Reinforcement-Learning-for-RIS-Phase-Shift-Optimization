@@ -18,7 +18,7 @@ def sanity_check():
     print("Running Sanity Checks...")
     
     # 1. M1 Shape Check
-    state_dim, action_dim = 128, 64
+    state_dim, action_dim = 208, 16  # Was 128, 64
     actor = Actor(state_dim, action_dim).to(device)
     critic = Critic(state_dim, action_dim).to(device)
     

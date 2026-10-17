@@ -11,12 +11,11 @@ def train_m1(episodes=200000, batch_size=256, gamma=0.99, tau=0.005, lr=1e-4):
     wandb = init_wandb(project="RIS-M1-DDPG", config={"episodes": episodes, "lr": lr})
     
     # Initialize Ayansh's real environment
-    env = RISEnv() 
+    env = RISEnv(N_bs=4, M_ris=16, K_users=2, device=device)
     
-    # IMPORTANT: Ensure state_dim matches Ayansh's env output shape. 
-    # If his env returns a different shape (e.g., 256), change 128 to that number.
-    state_dim = 128 
-    action_dim = 64 # M=64 RIS elements
+    # CORRECTED DIMENSIONS based on Ayansh's env
+    state_dim = 208   # (2*4 + 2*16 + 16*4) * 2 (real+imag)
+    action_dim = 16   # M_ris = 16 RIS elements
     
     actor = Actor(state_dim, action_dim).to(device)
     actor_target = Actor(state_dim, action_dim).to(device)
@@ -32,30 +31,45 @@ def train_m1(episodes=200000, batch_size=256, gamma=0.99, tau=0.005, lr=1e-4):
     noise = OUNoise(action_dim)
     
     for ep in range(episodes):
-        # 1. Reset the real environment
-        state = env.reset() 
+        # 1. Reset environment (returns PyTorch tensor on device)
+        state = env.reset().to(device)
         noise.reset()
         ep_reward = 0
         
-        # Run for a maximum of 50 steps per episode (adjust if Ayansh's env has a different limit)
-        max_steps = 50 
+        # Ayansh's env doesn't have multi-step episodes
+        # Each "episode" is one channel realization with one action
+        # We simulate multiple steps by resetting the channel each time
+        max_steps = 50
         for step in range(max_steps):
-            # 2. Get action from the Actor network
-            state_tensor = torch.FloatTensor(state).to(device)
-            action = actor(state_tensor).detach().cpu().numpy()
+            # 2. Get action from Actor (returns tensor in [-1, 1])
+            state_tensor = state.unsqueeze(0) if state.dim() == 1 else state
+            action = actor(state_tensor).squeeze(0)
             
-            # 3. Add exploration noise and clip to valid bounds
-            action_noise = np.clip(action + noise.sample(), -1.0, 1.0)
+            # 3. Add exploration noise
+            action_np = action.detach().cpu().numpy()
+            action_noisy = np.clip(action_np + noise.sample(), -1.0, 1.0)
+            action_tensor = torch.FloatTensor(action_noisy).to(device)
             
-            # 4. Step the real environment (returns 4 values)
-            next_state, reward, done, _ = env.step(action_noise)
+            # 4. Step environment (returns reward and h_eff, NOT next_state)
+            reward, h_eff = env.step(action_tensor)
             
-            # 5. Store transition in replay buffer
-            buffer.push(state, action_noise, reward, next_state, done)
+            # 5. For RL, we need a "next_state" - use the same state since channel doesn't change
+            next_state = state.clone()
+            done = (step == max_steps - 1)
+            
+            # 6. Store in buffer (convert to numpy for buffer)
+            buffer.push(
+                state.detach().cpu().numpy(),
+                action_noisy,
+                reward.item() if isinstance(reward, torch.Tensor) else reward,
+                next_state.detach().cpu().numpy(),
+                float(done)
+            )
+            
             state = next_state
-            ep_reward += reward
+            ep_reward += reward.item() if isinstance(reward, torch.Tensor) else reward
             
-            # 6. Train the networks if we have enough samples in the buffer
+            # 7. Train networks
             if len(buffer) > batch_size:
                 s, a, r, ns, d = buffer.sample(batch_size)
                 s, a, r, ns, d = s.to(device), a.to(device), r.to(device), ns.to(device), d.to(device)
@@ -74,18 +88,14 @@ def train_m1(episodes=200000, batch_size=256, gamma=0.99, tau=0.005, lr=1e-4):
                 actor_loss.backward()
                 actor_opt.step()
                 
-                # Soft Update for target networks
+                # Soft Update
                 soft_update(actor_target, actor, tau)
                 soft_update(critic_target, critic, tau)
                 
-            # If the environment signals the episode is over, break early
-            if done:
-                break
-                
-        # Log metrics to Weights & Biases
+        # Log metrics
         wandb.log({"M1_Episode_Reward": ep_reward, "M1_Critic_Loss": critic_loss.item()})
         
-        # Save checkpoint every 1000 episodes
+        # Save checkpoint
         if ep % 1000 == 0:
             torch.save(actor.state_dict(), f"checkpoints/m1_actor_ep{ep}.pth")
             
