@@ -14,7 +14,10 @@ def generate_dataset(num_samples=10000):
         dataset_actions.append(optimal_phases)
         if (i + 1) % 1000 == 0: print(f"Generated {i + 1}/{num_samples} samples")
             
-    torch.save({'states': torch.stack(dataset_states), 'actions': torch.stack(dataset_actions)}, 'data/ao_ground_truth.pt')
+        torch.save({
+        'channel_state': torch.stack(dataset_states),  # Changed from 'states'
+        'ao_target': torch.stack(dataset_actions)      # Changed from 'actions'
+    }, 'data/ao_ground_truth.pt')
     print("Dataset saved to data/ao_ground_truth.pt")
 
 if __name__ == "__main__":
