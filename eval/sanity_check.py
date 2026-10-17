@@ -19,7 +19,7 @@ def sanity_check():
     
     # 1. M1 Shape Check
     state_dim, action_dim = 208, 16  # Was 128, 64
-    actor = Actor(state_dim, action_dim).to(device)
+    actor = Actor(state_dim=208, action_dim=16).to(device)  # Was 128, 64
     critic = Critic(state_dim, action_dim).to(device)
     
     dummy_state = torch.randn(4, state_dim).to(device)

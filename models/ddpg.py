@@ -31,7 +31,7 @@ class ReplayBuffer:
     def __len__(self): return len(self.buffer)
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim=64, max_action=1.0):
+    def __init__(self, state_dim, action_dim=16, max_action=1.0):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim, 400), nn.ReLU(),
                                  nn.Linear(400, 300), nn.ReLU(),
@@ -40,7 +40,7 @@ class Actor(nn.Module):
     def forward(self, x): return self.max_action * torch.tanh(self.net(x))
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim=64):
+    def __init__(self, state_dim, action_dim=16): 
         super().__init__()
         self.net = nn.Sequential(nn.Linear(state_dim + action_dim, 400), nn.ReLU(),
                                  nn.Linear(400, 300), nn.ReLU(),
