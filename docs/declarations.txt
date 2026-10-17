@@ -1,0 +1,20 @@
+**CRediT Author Statement**
+Balraj: Conceptualization, Software, Formal Analysis, Data Curation, Writing – Review & Editing.
+Ayansh: Methodology, Mathematical Formalization, Data Generation, Writing – Original Draft, Visualization.
+Shreyansh: Software, Infrastructure Setup, Ablation Studies, Validation, Writing – Review & Editing.
+
+**Funding**
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors. *(Modify if your university provided a grant)*
+
+**Conflict of Interest**
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+**Data Availability**
+The PyTorch source code and the generated AO baseline dataset supporting the findings of this study are openly available in [GitHub Repository Link / Zenodo DOI] at the time of publication.
+
+**Pre-submission Checklist Verification**
+- [x] Similarity index checked and confirmed < 15%.
+- [x] All table captions are placed ABOVE the tables.
+- [x] All figure captions are placed BELOW the figures.
+- [x] References formatted strictly to IEEE CSL style (28 references).
+- [x] All acronyms (RIS, MISO, DDPG, SAC, AO, RCG, CSI) defined at first use.
