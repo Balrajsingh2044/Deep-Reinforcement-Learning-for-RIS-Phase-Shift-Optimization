@@ -155,8 +155,8 @@ def train_m1(total_steps=200000,
 
             if mean_r > best_reward:
                 best_reward = mean_r
-                torch.save(actor.state_dict(), "checkpoints/m1_actor_best.pth")
-                torch.save(actor.state_dict(), "models/m1_ddpg_actor.pth")
+                torch.save(actor, "checkpoints/m1_actor_best.pth")
+                torch.save(actor, "models/m1_ddpg_actor.pth")   
                 print(f"  ↳ New best saved ({best_reward:.3f})")
 
     wandb.finish()

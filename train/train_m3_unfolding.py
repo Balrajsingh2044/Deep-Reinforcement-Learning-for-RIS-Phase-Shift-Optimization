@@ -51,8 +51,8 @@ def train_m3(epochs=100, batch_size=64, lr=1e-3):
         
         if avg_loss < best_loss:
             best_loss = avg_loss
-            torch.save(model.state_dict(), "checkpoints/m3_unfolding_best.pth")
-            torch.save(model.state_dict(), "models/m3_unfolding.pth")
+            torch.save(model, "checkpoints/m3_unfolding_best.pth")
+            torch.save(model, "models/m3_unfolding.pth")
             print(f"  ↳ New best model saved (loss={best_loss:.6f})")
 
     wandb.finish()
