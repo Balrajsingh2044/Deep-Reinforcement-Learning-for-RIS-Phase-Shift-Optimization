@@ -4,6 +4,9 @@ import numpy as np
 from models.ddpg import Actor, Critic, ReplayBuffer, OUNoise
 from models.deep_unfolding import DeepUnfoldingRCG
 from utils.mock_env import MockRISEnv
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def test_m1_ddpg():
     print("\n--- Testing M1 (DDPG) ---")

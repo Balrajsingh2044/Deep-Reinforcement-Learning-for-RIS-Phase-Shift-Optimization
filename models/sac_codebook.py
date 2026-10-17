@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import math
 import collections
 import random
+import numpy as np
 
 CODEBOOK_PHASES = torch.tensor([2 * math.pi * i / 8 for i in range(8)], dtype=torch.float32)
 
@@ -54,12 +55,28 @@ def logits_to_phases(logits, temperature=1.0, hard=False):
 class ReplayBuffer:
     def __init__(self, capacity=100000):
         self.buffer = collections.deque(maxlen=capacity)
+        
     def push(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
+        # Convert tensors to CPU numpy arrays to save GPU memory and ensure clean batching
+        if isinstance(state, torch.Tensor): state = state.cpu().numpy()
+        if isinstance(action, torch.Tensor): action = action.cpu().numpy()
+        if isinstance(next_state, torch.Tensor): next_state = next_state.cpu().numpy()
+        
+        self.buffer.append((state, action, float(reward), next_state, float(done)))
+        
     def sample(self, batch_size, device):
         batch = random.sample(self.buffer, batch_size)
-        state, action, reward, next_state, done = map(torch.FloatTensor, zip(*batch))
-        return state.to(device), action.to(device), reward.to(device), next_state.to(device), done.to(device)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        
+        # Stack into batched tensors and move to the correct device
+        state = torch.FloatTensor(np.array(states)).to(device)
+        action = torch.FloatTensor(np.array(actions)).to( device)
+        reward = torch.FloatTensor(rewards).unsqueeze(1).to(device)
+        next_state = torch.FloatTensor(np.array(next_states)).to(device)
+        done = torch.FloatTensor(dones).unsqueeze(1).to(device)
+        
+        return state, action, reward, next_state, done
+        
     def __len__(self):
         return len(self.buffer)
 
