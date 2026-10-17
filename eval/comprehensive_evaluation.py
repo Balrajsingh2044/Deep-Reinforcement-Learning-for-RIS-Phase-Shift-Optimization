@@ -102,17 +102,22 @@ def run_full_evaluation(num_seeds=5, test_samples=1500):
         m1_rates = np.array(m1_rates_list)
 
         # M3 Evaluation
-        # FIXED: num_elements=64 to match ACTION_DIM
-        m3 = DeepUnfoldingRCG(num_elements=64, num_iterations=15).to(device)
+        from train.train_m3_unfolding import DeepUnfoldingReal
+        m3 = DeepUnfoldingReal(state_dim=1056, action_dim=64, num_iterations=15).to(device)
         # m3.load_state_dict(torch.load(f"checkpoints/m3_unfolding_seed{seed}.pth", map_location=device))
         m3.eval()
-        
+
         with torch.no_grad():
-            m3_actions_complex, _ = m3(test_init_p.to(device), test_chan_s.to(device))
-            # Extract phase angles from complex output if needed for env, 
-            # or just use complex directly if env supports it. 
-            # Assuming we need to convert to real action for env.step:
-            m3_angles = torch.angle(m3_actions_complex)
+            m3_actions, _ = m3(test_states.to(device))  # Use same test_states as M1
+
+        m3_rates_list = []
+        start_time = time.perf_counter()
+        for i in range(test_samples):
+            r, _ = env.step(m3_actions[i])
+            m3_rates_list.append(r.item())
+        end_time = time.perf_counter()
+        m3_lat = ((end_time - start_time) / test_samples) * 1000
+        m3_rates = np.array(m3_rates_list)
             
         m3_rates_list = []
         start_time = time.perf_counter()

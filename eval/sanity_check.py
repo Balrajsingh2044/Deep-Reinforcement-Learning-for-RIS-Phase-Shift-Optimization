@@ -29,18 +29,15 @@ def sanity_check():
     print("✅ M1 (DDPG) forward pass shapes verified.")
 
     # --- M3 (Deep Unfolding) ---
-    model_m3 = DeepUnfoldingRCG(num_elements=64, num_iterations=15).to(device)
-    init_p = torch.randn(4, 64, dtype=torch.complex64).to(device)
-    chan_s = torch.randn(4, 64, dtype=torch.complex64).to(device)
-    ao_t = torch.randn(4, 64, dtype=torch.complex64).to(device)
+    from train.train_m3_unfolding import DeepUnfoldingReal
+    model_m3 = DeepUnfoldingReal(state_dim=1056, action_dim=64, num_iterations=15).to(device)
+    test_states_m3 = torch.randn(4, 1056).to(device)
+    test_actions_m3 = torch.randn(4, 64).to(device)
 
-    out_m3, loss_m3 = model_m3(init_p, chan_s, ao_t)
+    out_m3, loss_m3 = model_m3(test_states_m3, test_actions_m3)
     assert not torch.isnan(loss_m3), "M3 produced NaN loss!"
-
-    mags = torch.abs(out_m3)
-    assert torch.allclose(mags, torch.ones_like(mags), atol=1e-4), \
-        "M3 phases NOT on unit circle!"
-    print("✅ M3 (Deep Unfolding) forward/backward + unit-circle verified.")
+    assert out_m3.shape == (4, 64), "M3 output shape mismatch!"
+    print("✅ M3 (Deep Unfolding) forward/backward verified.")
 
     # --- M2 (SAC + Gumbel-Softmax codebook) ---
     num_phases = 8  # 3-bit codebook
