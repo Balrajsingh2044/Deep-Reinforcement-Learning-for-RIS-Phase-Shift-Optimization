@@ -1,30 +1,17 @@
+import sys
+import os
 import torch
+
+# Ensure the root directory is in the Python path (fixes IDE red lines)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 from models.ddpg import Actor, Critic
 from models.deep_unfolding import DeepUnfoldingRCG
-import torch
-import torch.nn.functional as F
-
-def check_m2_gumbel_softmax():
-    print("Checking M2 (SAC + Codebook) Gumbel-Softmax snapping...")
-    batch_size = 4
-    num_phases = 8 # 3-bit codebook
-    
-    # Dummy continuous logits from SAC Actor
-    logits = torch.randn(batch_size, num_phases)
-    
-    # Gumbel-Softmax trick (tau=0.1 makes it nearly discrete/one-hot)
-    # hard=True ensures the output is exactly one-hot (snapped to codebook)
-    snapped_actions = F.gumbel_softmax(logits, tau=0.1, hard=True, dim=-1)
-    
-    # Verify it is truly discrete (sum of squares should equal batch_size for one-hot)
-    is_discrete = torch.allclose(snapped_actions.sum(dim=-1).pow(2), torch.ones(batch_size) * num_phases, atol=1e-5) # Adjusted logic for one-hot verification
-    
-    # Better check: each row should have exactly one '1.0' and rest '0.0'
-    max_vals, _ = snapped_actions.max(dim=-1)
-    is_snapped = torch.all(max_vals == 1.0).item()
-    
-    assert is_snapped, "M2 Gumbel-Softmax failed to snap to discrete codebook!"
-    print("✅ M2 Gumbel-Softmax correctly snapping to 3-bit (8-phase) discrete codebook.")
+# Fixed import: added SACCritic
+from models.sac_codebook import SACActor, SACCritic, logits_to_phases, CODEBOOK_PHASES
 
 def sanity_check():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,7 +40,29 @@ def sanity_check():
     out_m3, loss_m3 = model_m3(init_p, chan_s, ao_t)
     assert not torch.isnan(loss_m3), "M3 produced NaN loss!"
     print("✅ M3 (Deep Unfolding) forward/backward pass verified (No NaNs).")
-    print("🚀 Sanity checks passed. Ready for full training.")
+
+    # 3. M2 (SAC + Codebook) Shape & Snapping Check
+    actor_m2 = SACActor(state_dim=128, num_elements=64, num_phases=8).to(device)
+    critic_m2 = SACCritic(state_dim=128, num_elements=64).to(device)
+    
+    dummy_state_m2 = torch.randn(4, 128).to(device)
+    logits = actor_m2(dummy_state_m2) # Shape: (4, 64, 8)
+    
+    # Test Gumbel-Softmax snapping
+    phases, log_prob = logits_to_phases(logits, temperature=1.0, hard=True)
+    
+    assert phases.shape == (4, 64), f"M2 phase output shape mismatch! Got {phases.shape}"
+    assert not torch.isnan(phases).any(), "M2 produced NaN phases!"
+    
+    # Verify phases are actually snapping to the 8 codebook values
+    valid_phases = any(torch.isclose(phases.flatten()[0], cp, atol=1e-5).item() for cp in CODEBOOK_PHASES)
+    assert valid_phases, "M2 Gumbel-Softmax is not snapping to the codebook!"
+    
+    out_critic_m2 = critic_m2(dummy_state_m2, phases)
+    assert out_critic_m2.shape == (4, 1), "M2 Critic shape mismatch!"
+    print("✅ M2 (SAC + Codebook) forward pass, Gumbel snapping, and shapes verified.")
+    
+    print("🚀 All sanity checks passed. Ready for full training.")
 
 if __name__ == "__main__":
     sanity_check()
