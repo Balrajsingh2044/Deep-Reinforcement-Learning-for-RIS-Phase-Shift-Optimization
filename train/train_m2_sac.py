@@ -16,7 +16,7 @@ def make_env(seed=0):
     # Placeholder: Replace with actual env instantiation
     # env = RISChannelEnv(seed=seed)
     # return env
-    raise NotImplementedError("Waiting for Ayansh's environment push!")
+    return RISEnvWrapper(N_bs=4, M_ris=64, K_users=4, device='cuda')
 
 def train(num_episodes=200_000, num_phases=8, seed=0, device="cuda", ablation=False):
     env = make_env(seed=seed)
