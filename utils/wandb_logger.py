@@ -1,12 +1,18 @@
 # utils/wandb_logger.py
-import wandb
 
-class WandBLogger:
-    def __init__(self, project="ris_drl_sprint", config=None, group=None, name=None):
-        self.run = wandb.init(project=project, config=config or {}, group=group, name=name)
-
-    def log(self, metrics, step=None):
-        wandb.log(metrics, step=step)
-
+class MockWandB:
+    def __init__(self, project, config):
+        self.project = project
+        print(f"[MockWandB] Initialized project: {project}")
+        print(f"[MockWandB] Config: {config}")
+    
+    def log(self, metrics):
+        metrics_str = " | ".join([f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" 
+                                   for k, v in metrics.items()])
+        print(f"[{self.project}] {metrics_str}")
+    
     def finish(self):
-        wandb.finish()
+        print(f"[MockWandB] Training complete for {self.project}")
+
+def init_wandb(project, config):
+    return MockWandB(project, config)
