@@ -2,28 +2,48 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class DeepUnfoldingRCG(nn.Module):
-    def __init__(self, num_elements=64, num_iterations=15):
+class DeepUnfolding(nn.Module):
+    """
+    Deep Unfolding for real-valued phase angle prediction.
+    Input: 1056-dim channel state (real)
+    Output: 64-dim phase angles (real, in radians)
+    """
+    def __init__(self, state_dim=1056, action_dim=64, num_iterations=15):
         super().__init__()
         self.num_iterations = num_iterations
-        # Learnable step sizes for each unrolled iteration
-        self.step_sizes = nn.Parameter(torch.ones(num_iterations, dtype=torch.float32) * 0.1)
         
-    def forward(self, initial_phase, channel_state, ao_target=None):
-        current_phase = initial_phase # Shape: (batch, 64), dtype: torch.complex64
+        # Feature extractor: maps 1056-dim state to 64-dim initial phases
+        self.feature_net = nn.Sequential(
+            nn.Linear(state_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, action_dim)
+        )
+        
+        # Learnable step sizes for each unrolled iteration
+        self.step_sizes = nn.Parameter(torch.ones(num_iterations) * 0.1)
+        
+        # Iteration refinement network
+        self.refine_net = nn.Sequential(
+            nn.Linear(action_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, action_dim)
+        )
+        
+    def forward(self, states, ao_target=None):
+        """
+        states: (batch, 1056) real-valued channel state
+        ao_target: (batch, 64) real-valued optimal phase angles (radians)
+        """
+        phases = self.feature_net(states)
         
         for i in range(self.num_iterations):
-            # Placeholder for RCG gradient step (replace with exact RCG math from Ayansh)
-            grad = torch.conj(channel_state) * current_phase 
-            
-            # Gradient ascent with learnable step size
-            next_phase = current_phase + self.step_sizes[i] * grad
-            
-            # Riemannian Retraction: Project back to complex unit circle (|z| = 1)
-            current_phase = next_phase / (torch.abs(next_phase) + 1e-8)
-            
+            refinement = self.refine_net(phases)
+            phases = phases + self.step_sizes[i] * refinement
+        
         if ao_target is not None:
-            # MSE Loss for Deep Unfolding (supervised learning against AO baseline)
-            loss = F.mse_loss(current_phase.real, ao_target.real) + F.mse_loss(current_phase.imag, ao_target.imag)
-            return current_phase, loss
-        return current_phase, None
+            loss = F.mse_loss(phases, ao_target)
+            return phases, loss
+        
+        return phases, None
